@@ -35,7 +35,7 @@ class TestMetadata(AddonTestCase):
     def test_bl_info(self):
         info = self.addon.bl_info
         self.assertEqual(info["name"], "BigPrint Modular")
-        self.assertEqual(info["version"], (0, 10, 0))
+        self.assertEqual(info["version"], (0, 11, 1))
         self.assertIn("blender", info)
         self.assertIn("category", info)
 

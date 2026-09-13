@@ -56,7 +56,8 @@ BigPrint**.
    no se borra.
 7. **Exportar** → elige carpeta y `Exportar piezas`. Escribe un STL por pieza,
    siempre en milímetros, más `piezas.csv` con dimensiones, volúmenes y si cada
-   una cabe. El STL se escribe directamente, sin pasar por el exportador de
+   una cabe. Si has puesto dowels, escribe además un STL con todas las varillas
+   necesarias, tumbadas y en fila, listas para imprimir de una tirada. El STL se escribe directamente, sin pasar por el exportador de
    Blender, para que las unidades no dependan de la escena.
 8. O bien `Cortar en dos`, que genera dos objetos nuevos (`..._pieza_01` y `..._pieza_02`) y
    oculta el original, que no se modifica ni se borra. Debajo aparece la
@@ -219,9 +220,10 @@ aplicación.
 
 Nada de esto existe aún, ni siquiera a medias:
 
-- **Dowels impresos**: los agujeros se hacen en las dos piezas, pero la varilla
-  la pones tú (filamento de 1,75, varilla de nailon o metal). El complemento no
-  genera todavía el dowel como pieza imprimible.
+- **La rebaja de la varilla impresa** (0,15 mm de diámetro por defecto) es un
+  valor de partida. La impresión FDM saca los agujeros algo estrechos y los
+  cilindros algo gordos, y cuánto depende de tu máquina y tu material. Imprime
+  el primer lote, prueba con el calibre y ajusta el valor en el panel.
 - **Profundidad automática**: si el conector es más largo que el grueso de la
   pieza, se avisa pero no se recorta solo. La longitud de la varilla la decide
   quien la compra.

@@ -741,8 +741,10 @@ class TestExportacion(BlenderTestCase):
         bpy.ops.bigprint.preview_connectors()
         bpy.ops.bigprint.apply_connectors()
         bpy.ops.bigprint.export_pieces()
-        self.assertEqual(len(self._ficheros()), 3)
-        self.assertIn("piezas", self.settings.export_report)
+        # Tres piezas más el fichero de varillas, que no es una pieza
+        piezas = [n for n in self._ficheros() if not n.startswith("varillas")]
+        self.assertEqual(len(piezas), 3)
+        self.assertIn("3 piezas", self.settings.export_report)
 
     def test_crea_la_carpeta_si_no_existe(self):
         destino = os.path.join(self.tmp, "nueva")
@@ -982,6 +984,102 @@ class TestColecciones(BlenderTestCase):
         self.assertFalse(original.hide_get())
         bpy.ops.bigprint.toggle_original()
         self.assertTrue(original.hide_get())
+
+
+class TestVarillas(BlenderTestCase):
+    """Las varillas de los dowels, imprimibles y a medida del agujero."""
+
+    def setUp(self):
+        limpiar_escena()
+        bpy.ops.bigprint.load_example()
+        bpy.ops.bigprint.analyze()
+        self.settings = bpy.context.scene.bigprint
+        bpy.ops.bigprint.split_grid()
+        self.settings.connector_kind = "DOWEL"
+        self.settings.dowel_size = "3x20"
+        bpy.ops.bigprint.preview_connectors()
+        self.tmp = tempfile.mkdtemp()
+        self.settings.export_dir = self.tmp
+
+    def tearDown(self):
+        for nombre in os.listdir(self.tmp):
+            os.remove(os.path.join(self.tmp, nombre))
+        os.rmdir(self.tmp)
+
+    def _ficheros(self):
+        return sorted(os.listdir(self.tmp))
+
+    def test_se_cuentan_las_varillas_necesarias(self):
+        resultado = self.settings.connector_result
+        self.assertGreater(resultado.dowel_count, 0)
+        self.assertEqual(resultado.dowel_count, resultado.total)
+
+    def test_se_exporta_el_fichero_de_varillas(self):
+        bpy.ops.bigprint.export_pieces()
+        varillas = [n for n in self._ficheros() if n.startswith("varillas")]
+        self.assertEqual(len(varillas), 1)
+        self.assertIn(f"x{self.settings.connector_result.dowel_count}", varillas[0])
+
+    def test_la_varilla_entra_en_el_agujero(self):
+        from bigprint_modular.core import dowels as core_dowels
+
+        bpy.ops.bigprint.export_pieces()
+        spec = self.settings.resolve_dowel()
+        impreso = core_dowels.printed_diameter(spec, self.settings.dowel_fit_gap)
+        self.assertLess(impreso, spec.hole_diameter, "la varilla no entraría")
+
+    def test_el_stl_de_varillas_es_correcto(self):
+        from bigprint_modular.core.geometry import MeshData
+        from bigprint_modular.core.mesh_analysis import analyze_mesh as analizar
+
+        bpy.ops.bigprint.export_pieces()
+        nombre = [n for n in self._ficheros() if n.startswith("varillas")][0]
+        with open(os.path.join(self.tmp, nombre), "rb") as f:
+            f.read(80)
+            (n,) = struct.unpack("<I", f.read(4))
+            verts = []
+            tris = []
+            for _ in range(n):
+                f.read(12)
+                base = len(verts)
+                for _ in range(3):
+                    verts.append(struct.unpack("<3f", f.read(12)))
+                f.read(2)
+                tris.append((base, base + 1, base + 2))
+
+        informe = analizar(MeshData(vertices=verts, triangles=tris), weld_tolerance=0.01)
+        self.assertTrue(informe.is_watertight)
+        # Una varilla por conector, cada una tumbada y apoyada en la cama
+        self.assertEqual(informe.shell_count, self.settings.connector_result.dowel_count)
+        self.assertAlmostEqual(informe.dimensions_mm[0], 20.0, delta=0.5)
+        self.assertAlmostEqual(informe.bbox_min_mm[2], 0.0, places=2)
+
+    def test_la_varilla_va_tumbada(self):
+        from bigprint_modular.core import dowels as core_dowels
+        from bigprint_modular.core.mesh_analysis import analyze_mesh as analizar
+
+        malla = core_dowels.dowel_mesh(3.0, 20.0)
+        informe = analizar(malla)
+        # Larga en X, fina en Z: las capas corren a lo largo de la varilla
+        self.assertGreater(informe.dimensions_mm[0], informe.dimensions_mm[2] * 3)
+
+    def test_sin_varillas_si_se_desmarca(self):
+        self.settings.export_dowels = False
+        bpy.ops.bigprint.export_pieces()
+        self.assertEqual([n for n in self._ficheros() if n.startswith("varillas")], [])
+
+    def test_con_imanes_no_se_generan_varillas(self):
+        self.settings.connector_kind = "MAGNET"
+        bpy.ops.bigprint.preview_connectors()
+        self.assertEqual(self.settings.connector_result.dowel_count, 0)
+        bpy.ops.bigprint.export_pieces()
+        self.assertEqual([n for n in self._ficheros() if n.startswith("varillas")], [])
+
+    def test_la_lista_incluye_las_varillas(self):
+        bpy.ops.bigprint.export_pieces()
+        with open(os.path.join(self.tmp, "piezas.csv"), encoding="utf-8-sig") as f:
+            contenido = f.read()
+        self.assertIn("varillas", contenido)
 
 
 def main():

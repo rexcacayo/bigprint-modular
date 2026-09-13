@@ -409,6 +409,21 @@ class VIEW3D_PT_bigprint_export(BigPrintPanelBase, Panel):
         col.prop(settings, "export_dir")
         col.prop(settings, "export_list")
 
+        varillas = settings.connector_result.dowel_count
+        if varillas:
+            col.prop(settings, "export_dowels")
+            if settings.export_dowels:
+                sub = col.row()
+                sub.prop(settings, "dowel_fit_gap")
+                from ..core import dowels as _dowels
+
+                layout.label(
+                    text=_dowels.describe(
+                        settings.resolve_dowel(), varillas, settings.dowel_fit_gap
+                    ),
+                    icon="IPO_LINEAR",
+                )
+
         fila = layout.row()
         fila.scale_y = 1.3
         fila.operator("bigprint.export_pieces", icon="EXPORT")

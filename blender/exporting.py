@@ -9,6 +9,7 @@ import os
 
 import bpy
 
+from ..core import dowels as core_dowels
 from ..core import parts_list, stl_io
 from ..core.mesh_analysis import analyze_mesh
 from ..core.printer_profiles import check_fit
@@ -67,3 +68,37 @@ def write_parts_list(filas, directorio):
         # utf-8 con BOM: sin él, Excel se come los acentos de la cabecera
         f.write(parts_list.csv_text(filas))
     return ruta
+
+
+def export_dowels(directorio, spec, count, fit_gap=core_dowels.DEFAULT_FIT_GAP):
+    """Escribe un STL con todas las varillas en fila y devuelve (ruta, fila).
+
+    Van juntas en un solo fichero porque se imprimen de una tirada: separarlas
+    en un STL por varilla solo daría trabajo en el laminador.
+    """
+    if count < 1:
+        raise ExportError("No hay varillas que generar")
+
+    destino = bpy.path.abspath(directorio)
+    diametro = core_dowels.printed_diameter(spec, fit_gap)
+    largo = core_dowels.dowel_length(spec)
+    malla = core_dowels.dowel_batch(count, diametro, largo)
+
+    nombre = core_dowels.batch_filename(spec, count, fit_gap)
+    ruta = os.path.join(destino, nombre)
+    stl_io.write_binary_stl(malla, ruta)
+
+    caja = malla.bbox()
+    informe = analyze_mesh(malla)
+    fila = parts_list.PartRow(
+        index=0,
+        name="varillas",
+        filename=nombre,
+        dimensions_mm=caja.size,
+        volume_cm3=informe.volume_cm3,
+        watertight=informe.is_watertight,
+        fits=True,
+        connectors=count,
+        kind=parts_list.HARDWARE,
+    )
+    return ruta, fila

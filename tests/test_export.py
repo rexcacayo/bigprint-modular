@@ -89,6 +89,19 @@ class TestListaDePiezas(unittest.TestCase):
         self.assertIn("1 sin cerrar", resumen)
         self.assertIn("1 que no caben", resumen)
 
+    def test_las_varillas_no_cuentan_como_pieza(self):
+        filas = self.filas()
+        filas.append(
+            parts_list.PartRow(
+                0, "varillas", "varillas.stl", (20.0, 30.0, 3.0), 12.0, True, True,
+                connectors=8, kind=parts_list.HARDWARE,
+            )
+        )
+        resumen = parts_list.summary(filas)
+        self.assertIn("3 piezas", resumen)
+        self.assertIn("8856.0 cm³", resumen, "el material de las varillas no suma")
+        self.assertIn("8 varillas", resumen)
+
     def test_resumen_limpio(self):
         buenas = [f for f in self.filas() if f.watertight and f.fits]
         resumen = parts_list.summary(buenas)

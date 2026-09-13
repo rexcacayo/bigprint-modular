@@ -530,6 +530,7 @@ class BIGPRINT_OT_preview_connectors(Operator):
         grupos = []
         filas = []
         total = 0
+        dowels_puestos = 0
         sin_sitio = 0
 
         for eje, posicion in planos:
@@ -543,6 +544,8 @@ class BIGPRINT_OT_preview_connectors(Operator):
                 if colocacion.ok:
                     grupos.append((eje, posicion, colocacion.points, colocacion.spec))
                     total += colocacion.count
+                    if colocacion.spec.kind == cn.DOWEL:
+                        dowels_puestos += colocacion.count
                 else:
                     sin_sitio += 1
                 filas.append(f"{etiqueta}: {colocacion.describe()}")
@@ -566,6 +569,7 @@ class BIGPRINT_OT_preview_connectors(Operator):
         resultado.applied = False
         resultado.removed_cm3 = 0.0
         resultado.total = total
+        resultado.dowel_count = dowels_puestos
         resultado.planes_done = len(grupos)
         resultado.planes_failed = sin_sitio
         resultado.details = "\n".join(filas)
@@ -809,6 +813,16 @@ class BIGPRINT_OT_export_pieces(Operator):
                 profile=settings.resolve_profile(),
                 allow_rotation=settings.allow_rotation,
             )
+            varillas = settings.connector_result.dowel_count
+            if settings.export_dowels and varillas:
+                _ruta, fila = exporting.export_dowels(
+                    settings.export_dir,
+                    settings.resolve_dowel(),
+                    varillas,
+                    settings.dowel_fit_gap,
+                )
+                filas.append(fila)
+
             if settings.export_list:
                 exporting.write_parts_list(filas, settings.export_dir)
         except Exception as exc:  # noqa: BLE001 - se informa en la interfaz

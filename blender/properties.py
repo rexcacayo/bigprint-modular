@@ -195,6 +195,7 @@ class BigPrintConnectorResult(PropertyGroup):
     planes_failed: IntProperty(name="Caras sin sitio", default=0)
     details: StringProperty(name="Detalle", default="")
     applied: BoolProperty(name="Perforado", default=False)
+    dowel_count: IntProperty(name="Varillas necesarias", default=0)
     removed_cm3: FloatProperty(name="Material retirado (cm³)", default=0.0)
     depth_warning: StringProperty(name="Aviso de profundidad", default="")
 
@@ -353,6 +354,24 @@ class BigPrintSettings(PropertyGroup):
         description="Dónde se escriben los STL y la lista de piezas",
         default="//piezas/",
         subtype="DIR_PATH",
+    )
+
+    export_dowels: BoolProperty(
+        name="Varillas (STL)",
+        description="Generar también las varillas imprimibles de los dowels",
+        default=True,
+    )
+
+    dowel_fit_gap: FloatProperty(
+        name="Rebaja de la varilla",
+        description=(
+            "Cuánto más fina se imprime la varilla que el agujero, en mm de "
+            "diámetro. Ajústalo tras la primera prueba con el calibre"
+        ),
+        default=0.15,
+        min=0.0,
+        soft_max=0.6,
+        precision=2,
     )
 
     export_list: BoolProperty(

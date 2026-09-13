@@ -9,6 +9,9 @@ import io
 from dataclasses import dataclass
 from typing import List, Sequence
 
+PIECE = "pieza"
+HARDWARE = "material"
+
 COLUMNS = (
     "pieza",
     "fichero",
@@ -32,6 +35,7 @@ class PartRow:
     watertight: bool
     fits: bool
     connectors: int = 0
+    kind: str = PIECE
 
     def as_row(self) -> List[str]:
         dx, dy, dz = self.dimensions_mm
@@ -58,16 +62,31 @@ def csv_text(rows: Sequence[PartRow], delimiter: str = ";") -> str:
     return salida.getvalue()
 
 
+def pieces(rows: Sequence[PartRow]) -> List[PartRow]:
+    return [fila for fila in rows if fila.kind == PIECE]
+
+
 def total_volume_cm3(rows: Sequence[PartRow]) -> float:
-    return sum(fila.volume_cm3 for fila in rows)
+    """Material de las piezas.
+
+    Las varillas no cuentan: son un accesorio del montaje, y sumarlas al total
+    haría creer que el modelo tiene más material del que tiene.
+    """
+    return sum(fila.volume_cm3 for fila in pieces(rows))
 
 
 def summary(rows: Sequence[PartRow]) -> str:
-    if not rows:
+    piezas = pieces(rows)
+    if not piezas:
         return "Sin piezas"
-    sin_cerrar = sum(1 for f in rows if not f.watertight)
-    sin_caber = sum(1 for f in rows if not f.fits)
-    texto = f"{len(rows)} piezas, {total_volume_cm3(rows):.1f} cm³ de material"
+
+    sin_cerrar = sum(1 for f in piezas if not f.watertight)
+    sin_caber = sum(1 for f in piezas if not f.fits)
+    texto = f"{len(piezas)} piezas, {total_volume_cm3(rows):.1f} cm³ de material"
+
+    accesorios = sum(f.connectors for f in rows if f.kind == HARDWARE)
+    if accesorios:
+        texto += f", {accesorios} varillas"
     if sin_cerrar:
         texto += f", {sin_cerrar} sin cerrar"
     if sin_caber:
