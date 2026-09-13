@@ -1,0 +1,19 @@
+name: tests
+
+# Solo la batería que no necesita Blender: se ejecuta en segundos y cubre
+# todo el núcleo. La suite de Blender se lanza a mano (ver README).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  nucleo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Ejecutar tests
+        run: python3 tests/run_tests.py
