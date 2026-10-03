@@ -119,3 +119,30 @@ def extract_section(
         loops.append([(verts[i][u_axis], verts[i][v_axis]) for i in loop])
 
     return Section(loops)
+
+
+# --------------------------------------------------------------------------- planos inclinados
+def faces_on_any_plane(mesh: MeshData, plane, tolerance: float = PLANE_TOLERANCE) -> List[int]:
+    """Como `faces_on_plane`, para un `planes.Plane` con cualquier orientación."""
+    verts = mesh.vertices
+    encontrados = []
+    for indice, (i, j, k) in enumerate(mesh.triangles):
+        if all(abs(plane.distance(verts[v])) <= tolerance for v in (i, j, k)):
+            encontrados.append(indice)
+    return encontrados
+
+
+def extract_section_plane(mesh: MeshData, plane, tolerance: float = PLANE_TOLERANCE) -> Section:
+    """Sección sobre un plano cualquiera, en las coordenadas 2D de ese plano.
+
+    Para un plano de eje da exactamente lo mismo que `extract_section`."""
+    if plane.axis is not None:
+        return extract_section(mesh, plane.axis, plane.origin[plane.axis], tolerance)
+    caras = faces_on_any_plane(mesh, plane, tolerance)
+    if not caras:
+        return Section([])
+    aristas = _boundary_edges(mesh, caras)
+    if not aristas:
+        return Section([])
+    verts = mesh.vertices
+    return Section([[plane.to_2d(verts[i]) for i in loop] for loop in _build_loops(aristas)])

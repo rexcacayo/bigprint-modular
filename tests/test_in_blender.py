@@ -1088,5 +1088,54 @@ def main():
     sys.exit(0 if resultado.wasSuccessful() else 1)
 
 
+
+class TestTallerModoObjetoYHuecos(BlenderTestCase):
+    """0.12: piezas vaciadas y regla de modo Objeto."""
+
+    def _esfera_hueca(self):
+        import bmesh
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=24, radius=30)
+        dentro = bmesh.new()
+        bmesh.ops.create_uvsphere(dentro, u_segments=48, v_segments=24, radius=26)
+        bmesh.ops.reverse_faces(dentro, faces=dentro.faces[:])
+        tmp = bpy.data.meshes.new("tmp")
+        dentro.to_mesh(tmp)
+        dentro.free()
+        bm.from_mesh(tmp)
+        malla = bpy.data.meshes.new("Hueca")
+        bm.to_mesh(malla)
+        bm.free()
+        obj = bpy.data.objects.new("Hueca", malla)
+        bpy.context.scene.collection.objects.link(obj)
+        return obj
+
+    def test_corte_de_pieza_hueca_deja_tapa_en_anillo(self):
+        import math
+        import bmesh
+        obj = self._esfera_hueca()
+        piezas = cutting.split_object(bpy.context, obj, (0, 0, 5), (0, 0, 1))
+        total = 0.0
+        for pieza in piezas:
+            bm = bmesh.new()
+            bm.from_mesh(pieza.data)
+            self.assertTrue(all(e.is_manifold for e in bm.edges), pieza.name)
+            total += abs(bm.calc_volume(signed=True))
+            bm.free()
+        cascara = 4 / 3 * math.pi * (30 ** 3 - 26 ** 3)
+        self.assertLess(abs(total - cascara) / cascara, 0.05)
+
+    def test_botones_desactivados_en_modo_edicion(self):
+        obj = self._esfera_hueca()
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        bpy.ops.object.mode_set(mode="EDIT")
+        try:
+            self.assertFalse(bpy.ops.bigprint.use_active.poll())
+            self.assertFalse(bpy.ops.bigprint.load_example.poll())
+        finally:
+            bpy.ops.object.mode_set(mode="OBJECT")
+        self.assertTrue(bpy.ops.bigprint.use_active.poll())
+
 if __name__ == "__main__":
     main()

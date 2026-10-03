@@ -13,12 +13,14 @@ from ..core import connectors as cn
 from ..core import cut_plan as core_plan
 from ..core import sections as core_sections
 from ..core import cut_planes as cutp
+from ..core import planes as core_planes
 from ..core import pieces as core_pieces
 from ..core import printer_profiles as pp
 from ..core import units as un
 from ..core.mesh_analysis import analyze_mesh
 from . import (
     connector_objects,
+    cut_line,
     cut_plane_object,
     cutting,
     explode,
@@ -63,6 +65,15 @@ def _import_mesh_file(filepath: str) -> bool:
     return False
 
 
+
+def _modo_objeto(cls, context):
+    """Regla del taller: todos los botones trabajan en modo Objeto."""
+    if getattr(context, "mode", "OBJECT") != "OBJECT":
+        if hasattr(cls, "poll_message_set"):
+            cls.poll_message_set("Pasa a modo Objeto (Tab) para usar BigPrint.")
+        return False
+    return True
+
 class BIGPRINT_OT_import_model(Operator, ImportHelper):
     """Importa un modelo (STL/OBJ/PLY) y lo fija como modelo de trabajo"""
 
@@ -72,6 +83,10 @@ class BIGPRINT_OT_import_model(Operator, ImportHelper):
 
     filename_ext = ".stl"
     filter_glob: StringProperty(default="*.stl;*.obj;*.ply", options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        return _modo_objeto(cls, context)
 
     def execute(self, context):
         before = set(context.scene.objects)
@@ -108,6 +123,8 @@ class BIGPRINT_OT_use_active(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         return mesh_bridge.is_mesh_object(context.active_object)
 
     def execute(self, context):
@@ -126,6 +143,8 @@ class BIGPRINT_OT_analyze(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and mesh_bridge.is_mesh_object(settings.source_object)
 
@@ -232,6 +251,10 @@ class BIGPRINT_OT_clear_analysis(Operator):
     bl_label = "Limpiar análisis"
     bl_options = {"REGISTER"}
 
+    @classmethod
+    def poll(cls, context):
+        return _modo_objeto(cls, context)
+
     def execute(self, context):
         context.scene.bigprint.analysis.has_data = False
         return {"FINISHED"}
@@ -243,6 +266,10 @@ class BIGPRINT_OT_load_example(Operator):
     bl_idname = "bigprint.load_example"
     bl_label = "Cargar ejemplo"
     bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return _modo_objeto(cls, context)
 
     def execute(self, context):
         from .example_model import build_example_object
@@ -264,6 +291,8 @@ class BIGPRINT_OT_add_cut_plane(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.analysis.has_data
 
@@ -295,6 +324,8 @@ class BIGPRINT_OT_center_cut_plane(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.analysis.has_data
 
@@ -318,6 +349,8 @@ class BIGPRINT_OT_remove_cut_plane(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and cut_plane_object.get_plane(context) is not None
 
@@ -335,6 +368,8 @@ class BIGPRINT_OT_split_in_two(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         if settings is None or not settings.analysis.has_data:
             return False
@@ -363,6 +398,7 @@ class BIGPRINT_OT_split_in_two(Operator):
         # Un corte nuevo reemplaza al anterior: si no, Blender iría añadiendo
         # ".001" a los nombres y la numeración dejaría de significar nada.
         cutting.remove_pieces(context, obj.name)
+        reset_connectors(context, settings)
 
         try:
             nuevas = cutting.split_object(context, obj, tuple(origen), tuple(normal))
@@ -371,12 +407,32 @@ class BIGPRINT_OT_split_in_two(Operator):
             return {"CANCELLED"}
 
         self._verify(context, settings, obj, nuevas)
-        settings.cut_result.planes = f"{eje},{settings.cut_position}"
+        settings.cut_result.planes = core_planes.Plane.from_axis(eje, settings.cut_position).serialize()
         self.report({"INFO"}, f"{len(nuevas)} piezas generadas")
         return {"FINISHED"}
 
     def _verify(self, context, settings, source, nuevas):
         verify_pieces(settings, source, nuevas)
+
+
+def reset_connectors(context, settings):
+    """Un corte nuevo deja viejo cualquier cálculo de conectores: se borra.
+
+    Antes el panel seguía enseñando el aviso del corte anterior («Z = 25: no
+    cabe…») aunque ya se hubiera cortado por otro sitio.
+    """
+    connector_objects.remove_preview(context)
+    r = settings.connector_result
+    r.has_data = False
+    r.applied = False
+    r.total = 0
+    r.planes_done = 0
+    r.planes_failed = 0
+    r.details = ""
+    r.depth_warning = ""
+    r.suggestion = ""
+    r.removed_cm3 = 0.0
+    r.dowel_count = 0
 
 
 def verify_pieces(settings, source, nuevas):
@@ -397,7 +453,7 @@ def verify_pieces(settings, source, nuevas):
             unit_factor=factor,
             unit=settings.analysis.resolved_unit or "MM",
             weld_tolerance=(settings.weld_tolerance / factor)
-            if settings.weld_for_analysis
+            if (settings.weld_for_analysis and factor > 0.0)
             else 0.0,
         )
         cabe = pp.check_fit(
@@ -434,6 +490,8 @@ class BIGPRINT_OT_split_grid(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         if settings is None or not settings.analysis.has_data:
             return False
@@ -461,6 +519,7 @@ class BIGPRINT_OT_split_grid(Operator):
 
         factor = datos.unit_factor or 1.0
         cutting.remove_pieces(context, obj.name)
+        reset_connectors(context, settings)
 
         try:
             piezas = cutting.split_grid(context, obj, plan, factor)
@@ -474,7 +533,8 @@ class BIGPRINT_OT_split_grid(Operator):
 
         verify_pieces(settings, obj, piezas)
         settings.cut_result.planes = "\n".join(
-            f"{corte.axis},{corte.position}" for corte in plan.cuts
+            core_planes.Plane.from_axis(corte.axis, corte.position).serialize()
+            for corte in plan.cuts
         )
         self.report({"INFO"}, f"{len(piezas)} piezas generadas ({plan.describe()})")
         return {"FINISHED"}
@@ -489,15 +549,16 @@ class BIGPRINT_OT_remove_pieces(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.cut_result.has_data
 
     def execute(self, context):
         settings = context.scene.bigprint
         borradas = cutting.remove_pieces(context, settings.cut_result.source_name)
-        connector_objects.remove_preview(context)
+        reset_connectors(context, settings)
         settings.cut_result.has_data = False
-        settings.connector_result.has_data = False
         self.report({"INFO"}, f"{borradas} piezas descartadas")
         return {"FINISHED"}
 
@@ -511,6 +572,8 @@ class BIGPRINT_OT_preview_connectors(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.cut_result.has_data
 
@@ -532,45 +595,61 @@ class BIGPRINT_OT_preview_connectors(Operator):
         total = 0
         dowels_puestos = 0
         sin_sitio = 0
+        sugerencia = ""
+        muro = settings.resolved_wall()
 
-        for eje, posicion in planos:
-            seccion = self._section_at(piezas, eje, posicion, factor)
+        for plano in planos:
+            seccion = self._section_at(piezas, plano, factor)
             if seccion is None or seccion.is_empty:
+                filas.append(f"{plano.label()}: no se encuentra la cara de corte")
+                sin_sitio += 1
                 continue
 
             colocaciones = self._place(settings, seccion)
-            etiqueta = f"{'XYZ'[eje]} = {posicion:.0f}"
+            etiqueta = plano.label()
             for colocacion in colocaciones:
                 if colocacion.ok:
-                    grupos.append((eje, posicion, colocacion.points, colocacion.spec))
+                    grupos.append((plano, colocacion.points, colocacion.spec))
                     total += colocacion.count
                     if colocacion.spec.kind == cn.DOWEL:
                         dowels_puestos += colocacion.count
+                    filas.append(f"{etiqueta}: {colocacion.describe()}")
+                    continue
+                sin_sitio += 1
+                kind = colocacion.spec.kind
+                tamanos = cn.MAGNET_SIZES if kind == cn.MAGNET else cn.DOWEL_SIZES
+                otra = cn.best_fitting(seccion, tamanos, kind, wall=muro)
+                if otra is not None:
+                    filas.append(f"{etiqueta}: no cabe {colocacion.spec.label}; sí cabe {otra.label}")
+                    if not sugerencia:
+                        sugerencia = f"{kind}|{_size_key(otra)}|{otra.label}"
                 else:
-                    sin_sitio += 1
-                filas.append(f"{etiqueta}: {colocacion.describe()}")
+                    filas.append(f"{etiqueta}: {colocacion.describe()} (ni el más pequeño: mejor pegar)")
 
-        aviso = self._check_depth(piezas, grupos)
-        settings.connector_result.depth_warning = aviso
+        aviso = self._check_depth(piezas, grupos, factor)
+        resultado = settings.connector_result
+        resultado.depth_warning = aviso
+        resultado.suggestion = sugerencia
 
         if not grupos:
-            settings.connector_result.has_data = True
-            settings.connector_result.total = 0
-            settings.connector_result.planes_failed = sin_sitio
-            settings.connector_result.details = "\n".join(filas)
+            resultado.has_data = True
+            resultado.applied = False
+            resultado.total = 0
+            resultado.planes_done = 0
+            resultado.planes_failed = sin_sitio
+            resultado.details = "\n".join(filas)
             connector_objects.remove_preview(context)
             self.report({"WARNING"}, "No cabe ningún conector en estas caras")
             return {"FINISHED"}
 
         connector_objects.build_preview(context, grupos, factor)
 
-        resultado = settings.connector_result
         resultado.has_data = True
         resultado.applied = False
         resultado.removed_cm3 = 0.0
         resultado.total = total
         resultado.dowel_count = dowels_puestos
-        resultado.planes_done = len(grupos)
+        resultado.planes_done = len({id(g[0]) for g in grupos})
         resultado.planes_failed = sin_sitio
         resultado.details = "\n".join(filas)
 
@@ -578,20 +657,20 @@ class BIGPRINT_OT_preview_connectors(Operator):
         return {"FINISHED"}
 
     @staticmethod
-    def _check_depth(piezas, grupos):
-        """¿Cabe el conector a lo largo del eje sin salir por el otro lado?
+    def _check_depth(piezas, grupos, factor=1.0):
+        """¿Cabe el conector sin salir por el otro lado de la pieza?
 
-        Un dowel de 20 mm en una pieza de 15 mm de grueso la atraviesa y sale
-        por la cara vista. Se mide el grosor de la pieza más delgada que toca
-        cada plano y se avisa; no se recorta sola porque la longitud del dowel
-        la decide quien lo compra, no el complemento.
+        Se mide el grosor de cada pieza que toca el plano a lo largo de la
+        normal (sirve también para cortes inclinados) y se avisa; no se recorta
+        sola porque la longitud del dowel la decide quien lo compra.
         """
-        for eje, posicion, _puntos, spec in grupos:
+        for plano, _puntos, spec in grupos:
             for pieza in piezas:
-                caja_min, caja_max = cutting.world_bbox(pieza)
-                if not (caja_min[eje] - 0.01 <= posicion <= caja_max[eje] + 0.01):
-                    continue
-                grosor = caja_max[eje] - caja_min[eje]
+                bajo, alto = _extent_along(pieza, plano, factor)
+                if bajo > 0.01 or alto < -0.01:
+                    continue          # esta pieza no toca el plano
+                # Cada pieza queda a un lado: su grosor es lo que se aleja del plano
+                grosor = alto if abs(alto) > abs(bajo) else -bajo
                 if spec.depth > grosor * 0.8:
                     return (
                         f"El conector entra {spec.depth:.1f} mm en una pieza de "
@@ -600,15 +679,16 @@ class BIGPRINT_OT_preview_connectors(Operator):
         return ""
 
     @staticmethod
-    def _section_at(piezas, eje, posicion, factor):
+    def _section_at(piezas, plano, factor):
         """Sección de corte en milímetros, tomada de la primera pieza que la tenga.
 
         Las dos piezas que se tocan comparten exactamente la misma cara, así
-        que con una basta.
+        que con una basta. `plano` ya está en milímetros.
         """
+        tolerancia = 0.01 if plano.axis is not None else 0.02
         for pieza in piezas:
             malla = mesh_bridge.mesh_data_from_object(pieza).scaled(factor)
-            seccion = core_sections.extract_section(malla, eje, posicion, tolerance=0.01)
+            seccion = core_sections.extract_section_plane(malla, plano, tolerance=tolerancia)
             if not seccion.is_empty:
                 return seccion
         return None
@@ -632,6 +712,60 @@ class BIGPRINT_OT_preview_connectors(Operator):
         return [dowels, imanes]
 
 
+def _extent_along(pieza, plano, factor):
+    """Distancia mínima y máxima (mm) de la pieza al plano, medida en su normal."""
+    if plano.axis is not None:
+        caja_min, caja_max = cutting.world_bbox(pieza)
+        p = plano.origin[plano.axis]
+        return caja_min[plano.axis] * factor - p, caja_max[plano.axis] * factor - p
+    try:
+        import numpy as np
+
+        malla = pieza.data
+        co = np.empty(len(malla.vertices) * 3, dtype=np.float64)
+        malla.vertices.foreach_get("co", co)
+        co = co.reshape(-1, 3)
+        m = np.array(pieza.matrix_world, dtype=np.float64)
+        mundo = co @ m[:3, :3].T + m[:3, 3]
+        d = (mundo * factor - np.array(plano.origin)) @ np.array(plano.normal)
+        return float(d.min()), float(d.max())
+    except Exception:  # noqa: BLE001 - sin numpy se cae a la caja
+        caja_min, caja_max = cutting.world_bbox(pieza)
+        d = [plano.distance((x * factor, y * factor, z * factor))
+             for x in (caja_min[0], caja_max[0]) for y in (caja_min[1], caja_max[1])
+             for z in (caja_min[2], caja_max[2])]
+        return min(d), max(d)
+
+
+def _size_key(spec):
+    """Clave del desplegable de medidas («3x2», «5x30») para un ConnectorSpec."""
+    if spec.kind == cn.MAGNET:
+        return f"{spec.diameter:g}x{round(spec.depth - 0.2, 2):g}"
+    return f"{spec.diameter:g}x{round(spec.depth * 2.0, 2):g}"
+
+
+class BIGPRINT_OT_use_suggested_size(Operator):
+    """Cambia a la medida que sí cabe y recalcula los conectores"""
+
+    bl_idname = "bigprint.use_suggested_size"
+    bl_label = "Usar esta medida"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        settings = getattr(context.scene, "bigprint", None)
+        return settings is not None and bool(settings.connector_result.suggestion)
+
+    def execute(self, context):
+        settings = context.scene.bigprint
+        kind, clave, _texto = settings.connector_result.suggestion.split("|", 2)
+        if kind == cn.MAGNET:
+            settings.magnet_size = clave
+        else:
+            settings.dowel_size = clave
+        return bpy.ops.bigprint.preview_connectors()
+
+
 class BIGPRINT_OT_apply_connectors(Operator):
     """Perfora los agujeros de los conectores en las piezas"""
 
@@ -641,6 +775,8 @@ class BIGPRINT_OT_apply_connectors(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         if settings is None or not settings.connector_result.has_data:
             return False
@@ -699,6 +835,8 @@ class BIGPRINT_OT_toggle_original(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.cut_result.has_data
 
@@ -728,6 +866,8 @@ class BIGPRINT_OT_assemble(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.cut_result.has_data
 
@@ -746,6 +886,8 @@ class BIGPRINT_OT_number_pieces(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.cut_result.has_data
 
@@ -788,6 +930,8 @@ class BIGPRINT_OT_export_pieces(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         settings = getattr(context.scene, "bigprint", None)
         return settings is not None and settings.cut_result.has_data
 
@@ -846,6 +990,8 @@ class BIGPRINT_OT_clear_connectors(Operator):
 
     @classmethod
     def poll(cls, context):
+        if not _modo_objeto(cls, context):
+            return False
         return connector_objects.get_preview(context) is not None
 
     def execute(self, context):
@@ -866,7 +1012,9 @@ CLASSES = (
     BIGPRINT_OT_split_in_two,
     BIGPRINT_OT_split_grid,
     BIGPRINT_OT_remove_pieces,
+    *cut_line.CLASSES,
     BIGPRINT_OT_preview_connectors,
+    BIGPRINT_OT_use_suggested_size,
     BIGPRINT_OT_apply_connectors,
     BIGPRINT_OT_clear_connectors,
     BIGPRINT_OT_assemble,
@@ -879,8 +1027,10 @@ CLASSES = (
 def register():
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+    cut_line.register_draw()
 
 
 def unregister():
+    cut_line.unregister_draw()
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)

@@ -27,13 +27,19 @@ class CutError(RuntimeError):
     pass
 
 
-def _fill_open_boundaries(bm) -> int:
+def _fill_open_boundaries(bm, normal=None) -> int:
     """Tapa los agujeros que ha dejado el corte.
 
     Se buscan las aristas de borde de toda la malla en lugar de fiarse del
     `geom_cut` que devuelve bisect: así se tapan también las secciones que
     quedan en varios trozos (un plano puede atravesar dos brazos de una pieza
     y dejar dos agujeros separados).
+
+    Se usa `triangle_fill` con todos los contornos a la vez porque respeta los
+    contornos interiores: si la pieza está vaciada (cascos, bustos rellenos de
+    espuma) la tapa queda en anillo y el hueco sigue siendo hueco. `holes_fill`
+    tapaba cada contorno por separado y cerraba también el hueco, dejando caras
+    solapadas.
 
     Es seguro porque solo se corta a partir de mallas cerradas: cualquier borde
     que aparezca aquí lo ha creado el corte.
@@ -42,13 +48,16 @@ def _fill_open_boundaries(bm) -> int:
     if not bordes:
         return 0
 
-    resultado = bmesh.ops.holes_fill(bm, edges=bordes, sides=0)
-    caras = len(resultado.get("faces", []))
+    kwargs = {"use_beauty": True, "use_dissolve": False, "edges": bordes}
+    if normal is not None:
+        kwargs["normal"] = normal
+    resultado = bmesh.ops.triangle_fill(bm, **kwargs)
+    caras = sum(1 for g in resultado.get("geom", []) if isinstance(g, bmesh.types.BMFace))
 
-    # holes_fill se atraganta con algunos contornos; edgenet_fill es el plan B
+    # Plan B para contornos que la triangulación no admita
     restantes = [e for e in bm.edges if e.is_boundary]
     if restantes:
-        extra = bmesh.ops.edgenet_fill(bm, edges=restantes)
+        extra = bmesh.ops.holes_fill(bm, edges=restantes, sides=0)
         caras += len(extra.get("faces", []))
 
     return caras
@@ -81,7 +90,7 @@ def _build_side(source_mesh, matrix_world, plane_co, plane_no, keep_positive: bo
         if not bm.faces:
             raise CutError(f"El corte ha dejado vacía la pieza {name}")
 
-        _fill_open_boundaries(bm)
+        _fill_open_boundaries(bm, Vector(plane_no))
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
 
         malla = bpy.data.meshes.new(name)
@@ -286,34 +295,65 @@ def split_grid(context, obj, plan, factor: float = 1.0):
     return actuales
 
 
-def apply_holes(context, piezas, cortador):
-    """Resta el objeto cortador a cada pieza con un booleano exacto.
+def _solvers():
+    try:
+        return set(bpy.types.BooleanModifier.bl_rna.properties["solver"].enum_items.keys())
+    except (AttributeError, KeyError):
+        return set()
 
-    Se aplica el modificador en vez de dejarlo vivo: así las piezas quedan como
-    mallas autónomas, listas para exportar, y no dependen de que el cortador
-    siga existiendo. El modelo original sigue intacto, que es la red de
-    seguridad: si algo sale mal, se vuelve a cortar desde cero.
+
+def apply_holes(context, piezas, cortador):
+    """Resta el objeto cortador a cada pieza.
+
+    Se aplica sin `bpy.ops` (no depende del objeto activo ni del modo): se
+    evalúa el modificador y la malla resultante sustituye a la de la pieza. Así
+    las piezas quedan como mallas autónomas, listas para exportar, y no
+    dependen de que el cortador siga existiendo. Se prueba primero el
+    solucionador «Manifold» (mucho más rápido, Blender 4.5+) y, si no existe o
+    no da un sólido cerrado, el «Exacto». El modelo original sigue intacto, que
+    es la red de seguridad.
     """
+    disponibles = _solvers()
+    orden = [s for s in ("MANIFOLD", "EXACT") if s in disponibles] or [None]
     perforadas = []
     for pieza in piezas:
-        modificador = pieza.modifiers.new("BigPrint_Conectores", "BOOLEAN")
-        modificador.operation = "DIFFERENCE"
-        modificador.object = cortador
-        try:
-            # El solucionador exacto es el que no deja caras degeneradas en
-            # cortes tangentes; si esta versión no lo tiene, se usa el suyo.
-            modificador.solver = "EXACT"
-        except (AttributeError, TypeError):
-            pass
-
-        try:
-            with context.temp_override(
-                object=pieza, active_object=pieza, selected_objects=[pieza]
-            ):
-                bpy.ops.object.modifier_apply(modifier=modificador.name)
-        except RuntimeError as exc:
-            pieza.modifiers.remove(modificador)
-            raise CutError(f"No se ha podido perforar {pieza.name}: {exc}")
-
+        ultimo_error = None
+        for solver in orden:
+            modificador = pieza.modifiers.new("BigPrint_Conectores", "BOOLEAN")
+            modificador.operation = "DIFFERENCE"
+            modificador.object = cortador
+            if solver:
+                modificador.solver = solver
+            try:
+                context.view_layer.update()
+                grafo = context.evaluated_depsgraph_get()
+                nueva = bpy.data.meshes.new_from_object(
+                    pieza.evaluated_get(grafo), preserve_all_data_layers=True, depsgraph=grafo
+                )
+            except RuntimeError as exc:
+                ultimo_error = exc
+                continue
+            finally:
+                pieza.modifiers.remove(modificador)
+            if _cerrada(nueva):
+                vieja = pieza.data
+                pieza.data = nueva
+                nueva.name = vieja.name
+                if vieja.users == 0:
+                    bpy.data.meshes.remove(vieja)
+                break
+            bpy.data.meshes.remove(nueva)
+            ultimo_error = f"el solucionador {solver} no dio un sólido cerrado"
+        else:
+            raise CutError(f"No se ha podido perforar {pieza.name}: {ultimo_error}")
         perforadas.append(pieza)
     return perforadas
+
+
+def _cerrada(malla) -> bool:
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(malla)
+        return bool(bm.faces) and all(e.is_manifold for e in bm.edges)
+    finally:
+        bm.free()

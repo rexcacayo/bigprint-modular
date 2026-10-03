@@ -1,8 +1,8 @@
 """Objeto con los cilindros de los conectores.
 
-En la Fase 3a solo se muestran: sirven para ver dónde caerían los agujeros
-antes de tocar las piezas. En la 3b, estos mismos cilindros serán los
-cortadores del booleano, así que lo que se ve es exactamente lo que se hará.
+Primero solo se muestran, para ver dónde caerían los agujeros antes de tocar
+las piezas; al perforar, estos mismos cilindros son los cortadores del
+booleano, así que lo que se ve es exactamente lo que se hará.
 """
 
 import bpy
@@ -37,7 +37,7 @@ def remove_preview(context) -> bool:
 def build_preview(context, grupos, factor: float = 1.0):
     """Crea el objeto de vista previa.
 
-    `grupos` es una lista de (eje, posición_mm, puntos_2d_mm, spec). Todo llega
+    `grupos` es una lista de (plano_mm, puntos_2d_mm, spec). Todo llega
     en milímetros y aquí se pasa a unidades de Blender, que es el único sitio
     donde hace falta saberlo.
     """
@@ -45,10 +45,10 @@ def build_preview(context, grupos, factor: float = 1.0):
 
     vertices = []
     triangulos = []
-    for eje, posicion, puntos, spec in grupos:
+    for plano, puntos, spec in grupos:
         if not puntos:
             continue
-        v, t = cn.cutter_cylinders(puntos, eje, posicion, spec)
+        v, t = cn.cutter_cylinders_plane(puntos, plano, spec)
         desplazamiento = len(vertices)
         vertices.extend([(x / factor, y / factor, z / factor) for x, y, z in v])
         triangulos.extend(

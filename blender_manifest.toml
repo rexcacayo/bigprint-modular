@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "bigprint_modular"
-version = "0.11.1"
+version = "0.13.0"
 name = "BigPrint Modular"
 tagline = "Prepara modelos grandes para imprimirlos por piezas"
 maintainer = "Ricardo Lugaresi <rflugaresir@gmail.com>"

@@ -125,6 +125,17 @@ def install(stl_import_modern: bool = True):
     ):
         setattr(bpy_types, nombre, cls)
 
+    class SpaceView3D:
+        @staticmethod
+        def draw_handler_add(*a, **k):
+            return object()
+
+        @staticmethod
+        def draw_handler_remove(*a, **k):
+            return None
+
+    bpy_types.SpaceView3D = SpaceView3D
+
     bpy_props = types.ModuleType("bpy.props")
     for kind in ("Bool", "Int", "Float", "String", "Enum", "Pointer", "Collection", "FloatVector"):
         setattr(bpy_props, f"{kind}Property", _prop_factory(kind))
@@ -179,6 +190,16 @@ def install(stl_import_modern: bool = True):
 
     io_utils.ImportHelper = ImportHelper
     bpy_extras.io_utils = io_utils
+    view3d_utils = types.ModuleType("bpy_extras.view3d_utils")
+    bpy_extras.view3d_utils = view3d_utils
+
+    gpu = types.ModuleType("gpu")
+    gpu.shader = types.SimpleNamespace(from_builtin=lambda *a, **k: None)
+    gpu.state = types.SimpleNamespace()
+    gpu_extras = types.ModuleType("gpu_extras")
+    gpu_batch = types.ModuleType("gpu_extras.batch")
+    gpu_batch.batch_for_shader = lambda *a, **k: None
+    gpu_extras.batch = gpu_batch
 
     sys.modules.update(
         {
@@ -191,6 +212,10 @@ def install(stl_import_modern: bool = True):
             "mathutils": mathutils,
             "bpy_extras": bpy_extras,
             "bpy_extras.io_utils": io_utils,
+            "bpy_extras.view3d_utils": view3d_utils,
+            "gpu": gpu,
+            "gpu_extras": gpu_extras,
+            "gpu_extras.batch": gpu_batch,
         }
     )
     return bpy
@@ -198,7 +223,7 @@ def install(stl_import_modern: bool = True):
 
 def uninstall():
     for nombre in list(sys.modules):
-        if nombre == "bpy" or nombre.startswith("bpy.") or nombre in ("bmesh", "bpy_extras", "mathutils"):
+        if nombre == "bpy" or nombre.startswith("bpy.") or nombre in ("bmesh", "bpy_extras", "mathutils", "gpu", "gpu_extras", "gpu_extras.batch"):
             del sys.modules[nombre]
         elif nombre.startswith("bpy_extras."):
             del sys.modules[nombre]

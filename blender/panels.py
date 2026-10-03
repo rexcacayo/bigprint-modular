@@ -27,7 +27,12 @@ class VIEW3D_PT_bigprint_main(BigPrintPanelBase, Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.label(text="Fase 1: preparar y analizar", icon="MOD_BUILD")
+        if getattr(context, "mode", "OBJECT") != "OBJECT":
+            box = layout.box()
+            box.alert = True
+            box.label(text="BigPrint trabaja en modo Objeto", icon="ERROR")
+            box.operator("object.mode_set", text="Volver a modo Objeto", icon="OBJECT_DATAMODE").mode = "OBJECT"
+        layout.label(text="Analiza · corta · conectores · exporta", icon="MOD_BUILD")
 
 
 class VIEW3D_PT_bigprint_printer(BigPrintPanelBase, Panel):
@@ -218,8 +223,47 @@ class VIEW3D_PT_bigprint_cut(BigPrintPanelBase, Panel):
                 fila.operator("bigprint.split_grid", icon="MOD_ARRAY")
 
         layout.separator()
-        layout.label(text="Corte manual", icon="MOD_BEVEL")
+        self._draw_line(layout, settings, data)
 
+        layout.separator()
+        fila = layout.row()
+        fila.prop(
+            settings, "show_axis_cut", emboss=False,
+            icon="TRIA_DOWN" if settings.show_axis_cut else "TRIA_RIGHT",
+        )
+        if settings.show_axis_cut:
+            self._draw_axis(context, layout.box(), settings, data)
+
+        if not data.is_solid:
+            layout.label(text="Solo se corta una malla sólida", icon="ERROR")
+
+        self._draw_result(layout, settings)
+
+    @staticmethod
+    def _draw_line(layout, settings, data):
+        box = layout.box()
+        box.label(text="Línea de corte", icon="GREASEPENCIL")
+        puntos = settings.line_point_list() if settings.line_points else []
+        if not puntos:
+            col = box.column(align=True)
+            col.label(text="Pincha alrededor de la pieza por")
+            col.label(text="donde quieres cortarla. Intro cierra.")
+            fila = box.row()
+            fila.scale_y = 1.3
+            fila.operator("bigprint.draw_cut_line", text="Dibujar línea", icon="GREASEPENCIL")
+            return
+        if settings.line_report:
+            box.label(text=settings.line_report, icon="INFO")
+        fila = box.row(align=True)
+        fila.operator("bigprint.draw_cut_line", text="Volver a dibujar", icon="GREASEPENCIL")
+        fila.operator("bigprint.clear_cut_line", text="", icon="X")
+        fila = box.row()
+        fila.scale_y = 1.3
+        fila.enabled = data.is_solid
+        fila.operator("bigprint.cut_by_line", icon="MOD_BOOLEAN")
+
+    @staticmethod
+    def _draw_axis(context, layout, settings, data):
         hay_plano = cut_plane_object.get_plane(context) is not None
         row = layout.row(align=True)
         if hay_plano:
@@ -285,11 +329,6 @@ class VIEW3D_PT_bigprint_cut(BigPrintPanelBase, Panel):
         fila.scale_y = 1.3
         fila.operator("bigprint.split_in_two", icon="MOD_BOOLEAN")
 
-        if not data.is_solid:
-            layout.label(text="Solo se corta una malla sólida", icon="ERROR")
-
-        self._draw_result(layout, settings)
-
     @staticmethod
     def _draw_result(layout, settings):
         resultado = settings.cut_result
@@ -343,6 +382,13 @@ class VIEW3D_PT_bigprint_connectors(BigPrintPanelBase, Panel):
             col.prop(settings, "magnet_size")
         col.prop(settings, "connector_max")
 
+        col = layout.column(align=True)
+        col.label(text="Boquilla de tu impresora")
+        col.row(align=True).prop(settings, "nozzle", expand=True)
+        col.prop(settings, "wall_mm")
+        if settings.wall_mm <= 0:
+            col.label(text=f"Pared alrededor del agujero: {settings.resolved_wall():.2f} mm")
+
         fila = layout.row(align=True)
         fila.scale_y = 1.3
         fila.operator("bigprint.preview_connectors", icon="SNAP_MIDPOINT")
@@ -361,6 +407,14 @@ class VIEW3D_PT_bigprint_connectors(BigPrintPanelBase, Panel):
         col = box.column(align=True)
         for linea in resultado.lines():
             col.label(text=linea)
+
+        if resultado.suggestion and not resultado.applied:
+            _kind, _clave, texto = resultado.suggestion.split("|", 2)
+            sug = layout.box()
+            sug.label(text=f"Sí cabe: {texto}", icon="LIGHT")
+            fila = sug.row()
+            fila.scale_y = 1.2
+            fila.operator("bigprint.use_suggested_size", icon="CHECKMARK")
 
         if resultado.depth_warning:
             aviso = layout.box()

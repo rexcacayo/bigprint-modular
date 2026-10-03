@@ -1,7 +1,7 @@
 """BigPrint Modular — imprimir modelos grandes en impresoras pequeñas.
 
-Fase 1: perfiles de impresora, selección/importación del modelo, medidas y
-análisis de la malla. El corte, los conectores y la exportación llegan después.
+Análisis de la malla, corte automático o por una línea dibujada sobre el
+modelo, conectores (imanes y dowels) y exportación de las piezas.
 
 Estructura: `core/` es Python puro (testeable sin Blender) y `blender/` es la
 única parte que importa bpy.
@@ -10,11 +10,10 @@ Estructura: `core/` es Python puro (testeable sin Blender) y `blender/` es la
 bl_info = {
     "name": "BigPrint Modular",
     "author": "Ricardo Lugaresi",
-    "version": (0, 11, 1),
+    "version": (0, 13, 0),
     "blender": (3, 6, 0),
     "location": "Vista 3D > Barra lateral (N) > BigPrint",
-    "description": "Prepara modelos grandes para imprimirlos por piezas (Fase 1: análisis)",
-    "warning": "Versión de desarrollo: solo análisis, todavía no corta el modelo",
+    "description": "Prepara modelos grandes para imprimirlos por piezas",
     "category": "Mesh",
 }
 

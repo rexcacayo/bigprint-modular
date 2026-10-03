@@ -36,7 +36,22 @@ BigPrint**.
 
 ---
 
-## Uso (Fase 1)
+## Novedades 0.13
+
+- **Línea de corte** en vez del plano manual: `Dibujar línea`, pinchas alrededor
+  de la pieza sobre el modelo, cierras en el punto verde (o Intro) y
+  `Cortar por la línea`. Retroceso quita el último punto, Esc cancela. El corte
+  puede ir inclinado; si la línea sale casi recta, se endereza sola. El corte
+  por eje sigue disponible plegado como «Corte por eje (avanzado)».
+- **Imanes pequeños**: 3×1, 3×2, 4×2, 4×3 (además de 5×2 a 12×3).
+- **Pared según la boquilla**: 0,25 → 0,62 mm, 0,4 → 1 mm, 0,6 → 1,5 mm; o a mano.
+- **Si no cabe, dice cuál sí** y un botón la aplica.
+- Al volver a cortar se borra el cálculo de conectores anterior (antes quedaba
+  el aviso del corte viejo).
+- Corregido el muestreo de la cara de corte: en secciones estrechas se saltaba
+  la línea central y decía «no cabe» cuando sí cabía.
+
+## Uso
 
 1. **Impresora** — elige el perfil. Por defecto, *Genérica 256* (256×256×256 mm,
    margen 10 mm → volumen útil **236×236×236 mm**). Con *Personalizada* defines
@@ -47,9 +62,9 @@ BigPrint**.
    modelo llega mal escalado, fíjala a mano.
 4. **Analizar modelo**. Obtienes dimensiones en mm, volumen, superficie,
    topología, si la malla está cerrada y cuántas piezas harían falta.
-5. **Corte** → `Crear plano de corte`. Aparece un plano en alambre, centrado en
-   el eje que más se pasa del volumen útil. Muévelo con el deslizador y mira el
-   reparto previsto: dimensiones de cada mitad y si cabrían.
+5. **Corte** → `Dibujar línea` y pincha alrededor del modelo por donde quieras
+   partirlo; luego `Cortar por la línea`. (Plegado, «Corte por eje» deja poner
+   un plano recto con deslizador y ver el reparto previsto.)
 6. `Cortar automáticamente` aplica el plan de rejilla completo: corta por todos
    los planos necesarios, borra los objetos intermedios y deja las piezas
    numeradas de abajo arriba (`_pieza_01`, `_pieza_02`…). El original se oculta,
@@ -227,7 +242,8 @@ Nada de esto existe aún, ni siquiera a medias:
 - **Profundidad automática**: si el conector es más largo que el grueso de la
   pieza, se avisa pero no se recorta solo. La longitud de la varilla la decide
   quien la compra.
-- **Planos oblicuos**: los cortes son siempre perpendiculares a un eje.
+- **Corte siguiendo la forma**: la línea de corte define un plano (puede ir
+  inclinado), no una superficie que siga la línea punto a punto.
 - **Optimización del corte**: la rejilla reparte a distancias iguales sin mirar
   la forma. Puede caer en una zona delicada de la pieza; para eso está el corte
   manual.

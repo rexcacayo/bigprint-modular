@@ -165,12 +165,13 @@ class BigPrintCutResult(PropertyGroup):
     planes: StringProperty(name="Planos de corte", default="")
 
     def plane_list(self):
+        """Planos del último corte (`planes.Plane`), de eje o inclinados."""
+        from ..core.planes import Plane
+
         salida = []
         for linea in self.planes.split("\n"):
-            if not linea:
-                continue
-            eje, posicion = linea.split(",")
-            salida.append((int(eje), float(posicion)))
+            if linea.strip():
+                salida.append(Plane.parse(linea))
         return salida
 
     def piece_rows(self):
@@ -198,6 +199,7 @@ class BigPrintConnectorResult(PropertyGroup):
     dowel_count: IntProperty(name="Varillas necesarias", default=0)
     removed_cm3: FloatProperty(name="Material retirado (cm³)", default=0.0)
     depth_warning: StringProperty(name="Aviso de profundidad", default="")
+    suggestion: StringProperty(name="Medida que sí cabe", default="")
 
     def lines(self):
         return [l for l in self.details.split("\n") if l]
@@ -260,7 +262,8 @@ class BigPrintSettings(PropertyGroup):
         name="Soldar al analizar",
         description=(
             "Fundir vértices coincidentes en la copia de trabajo. Imprescindible "
-            "con STL, que repite los vértices en cada triángulo"
+            "con STL, que repite los vértices en cada triángulo. Solo se aplica si "
+            "la malla llega abierta y si soldar de verdad la arregla"
         ),
         default=True,
     )
@@ -312,6 +315,27 @@ class BigPrintSettings(PropertyGroup):
         ],
         default="3x20",
     )
+
+    nozzle: EnumProperty(
+        name="Boquilla",
+        description="Boquilla de tu impresora: decide la pared mínima alrededor de imanes y dowels",
+        items=[("0.25", "0.25", "Boquilla de 0,25 mm"), ("0.4", "0.4", "Boquilla de 0,4 mm"),
+               ("0.6", "0.6", "Boquilla de 0,6 mm"), ("0.8", "0.8", "Boquilla de 0,8 mm")],
+        default="0.4",
+    )
+
+    wall_mm: FloatProperty(
+        name="Pared alrededor (mm)",
+        description="Material mínimo entre el agujero y el borde de la pieza. 0 = según la boquilla (unos 2,5 perímetros)",
+        default=0.0,
+        min=0.0,
+        soft_max=4.0,
+        precision=2,
+    )
+
+    line_points: StringProperty(name="Puntos de la línea", default="")
+    line_report: StringProperty(name="Línea de corte", default="")
+    show_axis_cut: BoolProperty(name="Corte por eje (avanzado)", default=False)
 
     connector_max: IntProperty(
         name="Máximo por cara",
@@ -415,13 +439,26 @@ class BigPrintSettings(PropertyGroup):
         d, t = (float(v) for v in self.magnet_size.split("x"))
         from ..core import connectors as cn
 
-        return cn.magnet(d, t)
+        return cn.magnet(d, t, wall=self.resolved_wall())
 
     def resolve_dowel(self):
         d, l = (float(v) for v in self.dowel_size.split("x"))
         from ..core import connectors as cn
 
-        return cn.dowel(d, l)
+        return cn.dowel(d, l, wall=self.resolved_wall())
+
+    def resolved_wall(self) -> float:
+        """Pared mínima en mm: la escrita a mano o la de la boquilla."""
+        from ..core import connectors as cn
+
+        return self.wall_mm if self.wall_mm > 0 else cn.wall_from_nozzle(float(self.nozzle))
+
+    def line_point_list(self):
+        salida = []
+        for linea in self.line_points.split(";"):
+            if linea.strip():
+                salida.append(tuple(float(v) for v in linea.split(",")))
+        return salida
 
     def resolve_profile(self):
         """Devuelve el PrinterProfile activo, incluido el personalizado."""

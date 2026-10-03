@@ -126,3 +126,43 @@ class TestExampleModel(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWeldOnlyWhenItHelps(unittest.TestCase):
+    """Regresión 0.12.1: soldar no debe inventar defectos en mallas cerradas."""
+
+    def _cube_with_tiny_detail(self):
+        # Cubo cerrado con una cara partida en un abanico cuyo centro está a
+        # 0,004 mm de una esquina: aristas legítimas más cortas que 0,01 mm.
+        cube = box(10, 10, 10)
+        a, b, c = cube.triangles[0]
+        va, vb, vc = (cube.vertices[i] for i in (a, b, c))
+        cube.vertices.append(
+            tuple(va[i] + (vb[i] + vc[i] - 2 * va[i]) * 0.0001 for i in range(3))
+        )
+        m = len(cube.vertices) - 1
+        cube.triangles[0:1] = [(a, b, m), (b, c, m), (c, a, m)]
+        return cube
+
+    def test_closed_dense_mesh_is_not_damaged(self):
+        cube = self._cube_with_tiny_detail()
+        sin = analyze_mesh(cube)
+        con = analyze_mesh(cube, weld_tolerance=0.01)
+        self.assertTrue(sin.is_solid)
+        self.assertTrue(con.is_solid)
+        self.assertEqual(con.non_manifold_edges, 0)
+        self.assertEqual(con.degenerate_triangles, 0)
+        self.assertEqual(con.welded_vertices, 0)
+
+    def test_loose_stl_is_still_welded(self):
+        cube = box(10, 10, 10)
+        verts, tris = [], []
+        for t in cube.triangles:
+            base = len(verts)
+            verts.extend(cube.vertices[i] for i in t)
+            tris.append((base, base + 1, base + 2))
+        suelto = MeshData(vertices=verts, triangles=tris)
+        self.assertFalse(analyze_mesh(suelto).is_watertight)
+        r = analyze_mesh(suelto, weld_tolerance=0.01)
+        self.assertTrue(r.is_solid)
+        self.assertGreater(r.welded_vertices, 0)

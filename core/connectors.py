@@ -75,7 +75,7 @@ class ConnectorSpec:
         return f"{self.name} ({tipo} ⌀{self.diameter:g} × {self.depth:g} mm)"
 
 
-def magnet(diameter: float, thickness: float, clearance: float = 0.1) -> ConnectorSpec:
+def magnet(diameter: float, thickness: float, clearance: float = 0.1, wall: Optional[float] = None) -> ConnectorSpec:
     """Imán de disco de neodimio. El alojamiento es un pelín más hondo que el
     imán para que quede enrasado o ligeramente hundido y no impida el contacto."""
     return ConnectorSpec(
@@ -84,11 +84,11 @@ def magnet(diameter: float, thickness: float, clearance: float = 0.1) -> Connect
         diameter=diameter,
         depth=thickness + 0.2,
         clearance=clearance,
-        wall=max(1.5, diameter * 0.25),
+        wall=wall_for(diameter, wall, 0.25),
     )
 
 
-def dowel(diameter: float, length: float, clearance: float = 0.2) -> ConnectorSpec:
+def dowel(diameter: float, length: float, clearance: float = 0.2, wall: Optional[float] = None) -> ConnectorSpec:
     """Dowel suelto: el agujero se hace en las dos piezas, con la mitad de la
     varilla en cada una."""
     return ConnectorSpec(
@@ -97,12 +97,28 @@ def dowel(diameter: float, length: float, clearance: float = 0.2) -> ConnectorSp
         diameter=diameter,
         depth=length * 0.5,
         clearance=clearance,
-        wall=max(1.5, diameter * 0.6),
+        wall=wall_for(diameter, wall, 0.6),
     )
 
 
-#: Medidas corrientes de imán de disco de neodimio.
-MAGNET_SIZES = ((5.0, 2.0), (6.0, 3.0), (8.0, 3.0), (10.0, 3.0), (12.0, 3.0))
+#: Medidas corrientes de imán de disco de neodimio (las pequeñas, para figuras).
+MAGNET_SIZES = ((3.0, 1.0), (3.0, 2.0), (4.0, 2.0), (4.0, 3.0), (5.0, 2.0), (5.0, 3.0),
+                (6.0, 2.0), (6.0, 3.0), (8.0, 3.0), (10.0, 3.0), (12.0, 3.0))
+
+
+def wall_from_nozzle(nozzle: float) -> float:
+    """Pared mínima alrededor de un agujero: unos 2,5 perímetros de la boquilla
+    (0,4 → 1,0 mm; 0,25 → 0,6 mm; 0,6 → 1,5 mm)."""
+    return round(max(0.5, 2.5 * float(nozzle)), 2)
+
+
+def wall_for(diameter: float, wall: Optional[float], ratio: float) -> float:
+    """Pared de un conector: la indicada (de la boquilla) y, si no se indica,
+    la regla antigua (1,5 mm o una fracción del diámetro). Con pared indicada se
+    respeta: es el usuario quien conoce su impresora."""
+    if wall is not None and wall > 0:
+        return float(wall)
+    return max(1.5, diameter * ratio)
 
 #: Dowels habituales. El filamento de 1,75 es el que siempre está a mano.
 DOWEL_SIZES = ((1.75, 16.0), (3.0, 20.0), (4.0, 24.0), (5.0, 30.0), (6.0, 30.0))
@@ -262,23 +278,12 @@ def candidate_points(
     if section.is_empty:
         return []
 
-    (min_u, min_v), (max_u, max_v) = section.bounds()
     necesario = spec.required_clearance
-    if step is None:
-        # Paso ligado al tamaño del conector: ni tan fino que tarde, ni tan
-        # grueso que se salte el único sitio donde cabía.
-        step = max(0.5, min(necesario * 0.5, 4.0))
-
     puntos: List[Tuple[Vec2, float]] = []
-    u = min_u + step * 0.5
-    while u <= max_u:
-        v = min_v + step * 0.5
-        while v <= max_v:
-            holgura = section.clearance_at((u, v))
-            if holgura >= necesario:
-                puntos.append(((u, v), holgura))
-            v += step
-        u += step
+    for punto in _grid(section, necesario, step):
+        holgura = section.clearance_at(punto)
+        if holgura >= necesario:
+            puntos.append((punto, holgura))
     return puntos
 
 
@@ -344,30 +349,47 @@ def place_connectors(
     return resultado
 
 
+def _grid(section: Section, size: float, step: Optional[float] = None, max_samples: int = 40000):
+    """Rejilla de muestreo centrada en la sección.
+
+    Antes la rejilla empezaba en una esquina con un paso de medio conector, y en
+    una sección estrecha (la cintura de una figura) se saltaba justo la línea
+    central, el único sitio donde cabía el imán: decía «no cabe» sin ser
+    verdad. Ahora el paso también depende del lado corto y la rejilla pasa por
+    el centro, así que un rectángulo estrecho siempre se muestrea por su eje.
+    """
+    (min_u, min_v), (max_u, max_v) = section.bounds()
+    ancho, alto = max_u - min_u, max_v - min_v
+    if step is None:
+        corto = max(min(ancho, alto), 1e-6)
+        step = max(0.2, min(size * 0.5, 4.0, corto / 16.0))
+        while (ancho / step + 1) * (alto / step + 1) > max_samples:
+            step *= 1.5
+    cu, cv = (min_u + max_u) * 0.5, (min_v + max_v) * 0.5
+    nu, nv = int(ancho * 0.5 / step) + 1, int(alto * 0.5 / step) + 1
+    for i in range(-nu, nu + 1):
+        u = cu + i * step
+        if u < min_u or u > max_u:
+            continue
+        for j in range(-nv, nv + 1):
+            v = cv + j * step
+            if min_v <= v <= max_v:
+                yield (u, v)
+
+
 def _best_clearance(section: Section, step: Optional[float]) -> float:
     """Mejor holgura disponible, para poder explicar por qué no cabe nada."""
     if section.is_empty:
         return 0.0
-    (min_u, min_v), (max_u, max_v) = section.bounds()
-    paso = step or max(0.5, min((max_u - min_u), (max_v - min_v)) / 20.0)
-    mejor = 0.0
-    u = min_u
-    while u <= max_u:
-        v = min_v
-        while v <= max_v:
-            holgura = section.clearance_at((u, v))
-            if holgura > mejor:
-                mejor = holgura
-            v += paso
-        u += paso
-    return mejor
+    return max((section.clearance_at(p) for p in _grid(section, 2.0, step)), default=0.0)
 
 
 def _dist(a: Vec2, b: Vec2) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-def fitting_sizes(section: Section, sizes: Sequence[Tuple[float, float]], kind: str = MAGNET):
+def fitting_sizes(section: Section, sizes: Sequence[Tuple[float, float]], kind: str = MAGNET,
+                  wall: Optional[float] = None, max_count: int = 4):
     """Qué medidas de la lista caben en esta sección, de mayor a menor.
 
     Sirve para responder a "qué imán le pongo": se prueban las medidas
@@ -376,10 +398,41 @@ def fitting_sizes(section: Section, sizes: Sequence[Tuple[float, float]], kind: 
     fabricar = magnet if kind == MAGNET else dowel
     salida = []
     for diametro, grosor in sorted(sizes, reverse=True):
-        spec = fabricar(diametro, grosor)
-        colocacion = place_connectors(section, spec)
+        spec = fabricar(diametro, grosor, wall=wall)
+        colocacion = place_connectors(section, spec, max_count)
         salida.append((spec, colocacion.count))
     return salida
+
+
+def best_fitting(section: Section, sizes: Sequence[Tuple[float, float]], kind: str = MAGNET,
+                 wall: Optional[float] = None):
+    """La medida más grande que cabe (al menos uno), o None. Para el aviso
+    «no cabe 5×2; sí cabe 3×2»."""
+    for spec, count in fitting_sizes(section, sizes, kind, wall, max_count=1):
+        if count >= 1:
+            return spec
+    return None
+
+
+def cutter_cylinders_plane(points: Sequence[Vec2], plane, spec: "ConnectorSpec", segments: int = 24):
+    """Como `cutter_cylinders`, para un plano con cualquier orientación (línea de corte)."""
+    radio = spec.hole_radius
+    mitad = spec.depth
+    vertices: List[Tuple[float, float, float]] = []
+    triangulos: List[Tuple[int, int, int]] = []
+    for centro in points:
+        base = len(vertices)
+        for desplazamiento in (-mitad, mitad):
+            for s in range(segments):
+                ang = 2.0 * math.pi * s / segments
+                vertices.append(plane.to_3d((centro[0] + radio * math.cos(ang), centro[1] + radio * math.sin(ang)), desplazamiento))
+        cb = len(vertices); vertices.append(plane.to_3d(centro, -mitad))
+        ct = len(vertices); vertices.append(plane.to_3d(centro, mitad))
+        for s in range(segments):
+            n = (s + 1) % segments
+            b0, b1, t0, t1 = base + s, base + n, base + segments + s, base + segments + n
+            triangulos += [(b0, b1, t1), (b0, t1, t0), (cb, b1, b0), (ct, t0, t1)]
+    return vertices, triangulos
 
 
 def cutter_cylinders(

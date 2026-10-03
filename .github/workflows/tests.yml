@@ -12,8 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # los tests importan el complemento como paquete `bigprint_modular`
+          path: bigprint_modular
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Ejecutar tests
+        working-directory: bigprint_modular
         run: python3 tests/run_tests.py

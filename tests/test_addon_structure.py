@@ -35,7 +35,7 @@ class TestMetadata(AddonTestCase):
     def test_bl_info(self):
         info = self.addon.bl_info
         self.assertEqual(info["name"], "BigPrint Modular")
-        self.assertEqual(info["version"], (0, 11, 1))
+        self.assertEqual(info["version"], (0, 13, 0))
         self.assertIn("blender", info)
         self.assertIn("category", info)
 
@@ -142,6 +142,10 @@ class TestOperatorsAndPanels(AddonTestCase):
             "bigprint.number_pieces",
             "bigprint.assemble",
             "bigprint.toggle_original",
+            "bigprint.draw_cut_line",
+            "bigprint.cut_by_line",
+            "bigprint.clear_cut_line",
+            "bigprint.use_suggested_size",
         }
         self.assertEqual({c.bl_idname for c in operators.CLASSES}, esperados)
 

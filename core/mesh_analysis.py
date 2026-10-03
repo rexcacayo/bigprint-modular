@@ -126,6 +126,49 @@ def _count_shells(triangles: Sequence[Tuple[int, int, int]], vertex_count: int) 
     return shells
 
 
+@dataclass
+class _Topology:
+    boundary: int = 0
+    non_manifold: int = 0
+    inconsistent: int = 0
+    degenerate: int = 0
+    used_vertices: int = 0
+
+    def score(self) -> Tuple[int, int, int]:
+        """Menor es mejor: primero errores, luego avisos."""
+        return (self.boundary + self.non_manifold, self.inconsistent, self.degenerate)
+
+
+def _topology(mesh: MeshData) -> _Topology:
+    """Cuenta aristas de borde, no-manifold, mal orientadas y degenerados."""
+    verts = mesh.vertices
+    undirected: Counter = Counter()
+    directed: Counter = Counter()
+    used: Set[int] = set()
+    degenerate = 0
+
+    for i, j, k in mesh.triangles:
+        used.update((i, j, k))
+        if i == j or j == k or k == i:
+            degenerate += 1
+            continue
+        if triangle_area(verts[i], verts[j], verts[k]) < DEGENERATE_AREA_EPS:
+            degenerate += 1
+        for a, b in ((i, j), (j, k), (k, i)):
+            undirected[_edge_key(a, b)] += 1
+            directed[(a, b)] += 1
+
+    return _Topology(
+        boundary=sum(1 for c in undirected.values() if c == 1),
+        non_manifold=sum(1 for c in undirected.values() if c > 2),
+        # En una malla cerrada y bien orientada cada arista aparece una vez en
+        # cada sentido; dos veces en el mismo sentido = caras invertidas.
+        inconsistent=sum(1 for c in directed.values() if c > 1),
+        degenerate=degenerate,
+        used_vertices=len(used),
+    )
+
+
 def analyze_mesh(
     mesh: MeshData,
     unit_factor: float = 1.0,
@@ -145,9 +188,21 @@ def analyze_mesh(
         report.errors.append("La malla no tiene geometría (0 vértices o 0 caras)")
         return report
 
-    if weld_tolerance > 0.0:
-        mesh, fundidos = weld_vertices(mesh, weld_tolerance)
-        report.welded_vertices = fundidos
+    # Soldar solo hace falta cuando la malla llega "suelta" (STL con los
+    # vértices repetidos en cada triángulo), y eso se nota en que aparecen
+    # aristas de borde. Si la malla ya está cerrada, soldar no puede mejorar
+    # nada y sí empeorarlo: en modelos pequeños y densos (p. ej. Meshy) hay
+    # aristas más cortas que la tolerancia y soldar colapsa triángulos
+    # legítimos, inventando aristas no-manifold y degenerados que no existen.
+    topo = _topology(mesh)
+    if weld_tolerance > 0.0 and topo.boundary:
+        soldada, fundidos = weld_vertices(mesh, weld_tolerance)
+        if fundidos:
+            topo_soldada = _topology(soldada)
+            # Solo se acepta la versión soldada si de verdad arregla algo.
+            if topo_soldada.score() < topo.score():
+                mesh, topo = soldada, topo_soldada
+                report.welded_vertices = fundidos
 
     verts = mesh.vertices
     tris = mesh.triangles
@@ -157,34 +212,16 @@ def analyze_mesh(
     report.polygon_count = mesh.source_polygon_count
     report.triangle_count = len(tris)
 
-    # --- Topología: aristas compartidas ---------------------------------
-    undirected: Counter = Counter()
-    directed: Counter = Counter()
-    used_vertices: Set[int] = set()
-    degenerate = 0
-
-    for i, j, k in tris:
-        used_vertices.update((i, j, k))
-        if i == j or j == k or k == i:
-            degenerate += 1
-            continue
-        if triangle_area(verts[i], verts[j], verts[k]) < DEGENERATE_AREA_EPS:
-            degenerate += 1
-        for a, b in ((i, j), (j, k), (k, i)):
-            undirected[_edge_key(a, b)] += 1
-            directed[(a, b)] += 1
-
-    boundary = sum(1 for count in undirected.values() if count == 1)
-    non_manifold = sum(1 for count in undirected.values() if count > 2)
-    # En una malla cerrada y bien orientada cada arista aparece una vez en cada
-    # sentido; si aparece dos veces en el mismo sentido, hay caras invertidas.
-    inconsistent = sum(1 for count in directed.values() if count > 1)
+    boundary = topo.boundary
+    non_manifold = topo.non_manifold
+    inconsistent = topo.inconsistent
+    degenerate = topo.degenerate
 
     report.boundary_edges = boundary
     report.non_manifold_edges = non_manifold
     report.inconsistent_edges = inconsistent
     report.degenerate_triangles = degenerate
-    report.loose_vertices = max(0, len(verts) - len(used_vertices))
+    report.loose_vertices = max(0, len(verts) - topo.used_vertices)
     report.shell_count = _count_shells(tris, len(verts))
 
     report.is_watertight = boundary == 0
