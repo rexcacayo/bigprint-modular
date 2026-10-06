@@ -7,7 +7,7 @@ tagline = "Prepara modelos grandes para imprimirlos por piezas"
 maintainer = "Ricardo Lugaresi <rflugaresir@gmail.com>"
 type = "add-on"
 
-license = ["SPDX:MIT"]
+license = ["SPDX:GPL-3.0-or-later"]
 blender_version_min = "4.2.0"
 
 tags = ["Mesh", "3D View", "Import-Export"]

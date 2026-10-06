@@ -1,6 +1,6 @@
 # BigPrint Modular
 
-Complemento de Blender, software libre bajo licencia MIT.
+Complemento de Blender, software libre bajo licencia GPL-3.0-or-later.
 
 Complemento de Blender para imprimir modelos grandes en impresoras pequeñas:
 importa el modelo, lo parte en piezas que quepan en la cama, añade conectores y
@@ -336,4 +336,4 @@ calibre antes de fabricar en serio.
 
 ## Licencia
 
-MIT. Úsalo, cámbialo y compártelo.
+GPL-3.0-or-later. Gratis para usar, modificar y compartir; si redistribuyes una versión modificada, publica también su código. Es la licencia que exige extensions.blender.org.
