@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Tipos y utilidades geométricas puras (sin bpy).
 
 Todo el núcleo trabaja con listas de tuplas para poder ejecutarse y probarse

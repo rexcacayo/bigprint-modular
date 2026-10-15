@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Limpieza no destructiva sobre la copia de trabajo.
 
 Un STL guarda cada triángulo con sus tres vértices repetidos: sin soldar, una

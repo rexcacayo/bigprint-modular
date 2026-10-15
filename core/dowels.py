@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Generación de los dowels imprimibles.
 
 Se generan tumbados a lo largo de X, apoyados en Z = 0. Es intencionado: un

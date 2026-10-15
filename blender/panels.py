@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Paneles de la barra lateral (tecla N, pestaña "BigPrint").
 
 `draw()` solo lee la caché del análisis: nunca recalcula ni toca la malla.

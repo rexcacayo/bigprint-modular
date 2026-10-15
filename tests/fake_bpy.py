@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Doble de pruebas de bpy/bmesh/bpy_extras.
 
 No pretende emular Blender: solo lo justo para importar y registrar el

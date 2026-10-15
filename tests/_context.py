@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Preparación de sys.path para los tests.
 
 El núcleo se importa como paquete de primer nivel (`core`) para demostrar que

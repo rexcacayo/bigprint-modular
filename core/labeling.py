@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Dónde grabar el número de pieza.
 
 El número va hundido en la cara inferior: es la que apoya en la cama, no se ve

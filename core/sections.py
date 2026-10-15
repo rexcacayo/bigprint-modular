@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Extracción de la sección de corte a partir de la malla de una pieza.
 
 Tras cortar, la cara nueva de la pieza queda sobre el plano de corte. Aquí se

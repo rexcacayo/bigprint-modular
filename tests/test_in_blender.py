@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Verificación dentro de Blender (lo que el arnés falso no puede probar).
 
     blender --background --python tests/test_in_blender.py

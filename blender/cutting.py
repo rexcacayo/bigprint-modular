@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Corte del modelo en dos piezas con `bisect_plane`.
 
 Se usa bisect y no un booleano porque para un plano recto es más directo,

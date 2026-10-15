@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Genera el STL de ejemplo: una escuadra de 420 × 180 × 260 mm.
 
     python3 examples/make_example_stl.py

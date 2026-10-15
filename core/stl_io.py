@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Escritura de STL binario.
 
 Se escribe a mano en lugar de llamar al exportador de Blender por dos razones:

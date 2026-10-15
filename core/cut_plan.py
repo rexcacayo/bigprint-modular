@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Plan de corte en rejilla: la lista de planos necesarios para que todo quepa.
 
 Los cortes se reparten a distancias iguales dentro de cada eje. Es la opción

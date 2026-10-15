@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Análisis de la malla: ¿está cerrada?, ¿tiene volumen?, ¿es imprimible?
 
 Trabaja sobre `MeshData` (triángulos en coordenadas de mundo) para poder

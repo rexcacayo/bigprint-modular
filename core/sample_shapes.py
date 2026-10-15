@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Sólidos generados por código, en milímetros.
 
 Sirven para tres cosas: el ejemplo del complemento, el STL de muestra y los

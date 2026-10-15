@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """BigPrint Modular — imprimir modelos grandes en impresoras pequeñas.
 
 Análisis de la malla, corte automático o por una línea dibujada sobre el

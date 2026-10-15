@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Piezas resultantes de un corte: cómo se llaman y cómo se comprueban.
 
 El corte en sí es cosa de Blender (bmesh), pero el nombrado y la verificación

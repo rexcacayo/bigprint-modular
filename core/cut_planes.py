@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Plano de corte: dónde ponerlo y qué saldría de él.
 
 Fase 2a: aquí no se corta nada. Solo se calcula la posición del plano, la

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Lista de piezas: la hoja que acompaña a los STL.
 
 Sirve para saber qué hay que imprimir, en qué orden montarlo y cuánto material

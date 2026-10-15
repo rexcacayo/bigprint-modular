@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Vista explotada: separar las piezas para verlas todas a la vez.
 
 Cada pieza se aleja del centro del conjunto en la dirección en la que ya está,

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Creación del objeto de ejemplo dentro de Blender.
 
 La geometría se genera en el núcleo (core.sample_shapes) y aquí solo se vuelca

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Único punto donde se leen datos de Blender para alimentar el núcleo.
 
 Regla del proyecto: el modelo original NUNCA se modifica. Por eso aquí se

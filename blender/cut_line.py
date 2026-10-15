@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Línea de corte: se dibuja con clics sobre el modelo y se corta por ella.
 
 Sustituye al plano manual. Se pincha alrededor de la pieza por donde se quiere

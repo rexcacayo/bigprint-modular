@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Operadores del complemento.
 
 Ninguno de estos operadores escribe en la malla del objeto de origen: el

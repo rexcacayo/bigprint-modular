@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Conectores: dónde caben y cuántos, dada la sección de corte.
 
 Todo esto es geometría 2D en el plano del corte, así que es Python puro y se

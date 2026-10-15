@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Grabado del número de pieza en la cara inferior.
 
 Se usa la tipografía de Blender convertida a malla, no una geometría propia:

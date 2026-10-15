@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Lógica pura de BigPrint Modular: nada de aquí importa bpy.
 
 Mantener el núcleo libre de Blender permite ejecutar los tests con python

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Propiedades de escena del complemento.
 
 El resultado del análisis se cachea en la escena (y no se recalcula al pintar

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Aplicación de la vista explotada a las piezas de la escena.
 
 La posición de montaje se guarda en cada pieza la primera vez que se explota,

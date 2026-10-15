@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Exportación de las piezas a STL, una por fichero.
 
 La malla se lee igual que para el análisis (evaluada, en coordenadas de mundo)

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Objeto con los cilindros de los conectores.
 
 Primero solo se muestran, para ver dónde caerían los agujeros antes de tocar

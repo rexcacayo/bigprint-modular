@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Objeto guía que representa el plano de corte en la escena.
 
 Es un simple plano en modo alambre, controlado desde el panel. Se mueve

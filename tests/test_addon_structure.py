@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Tests de la capa de Blender usando el doble de pruebas `fake_bpy`.
 
 Comprueban lo que se puede comprobar sin Blender: que el paquete importa, que

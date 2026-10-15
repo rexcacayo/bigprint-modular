@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Prueba de ida y vuelta con un STL de verdad.
 
 Un STL no comparte vértices entre triángulos, así que releído en crudo parece

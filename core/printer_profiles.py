@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Perfiles de impresora y cálculo de encaje del modelo en el volumen útil.
 
 El margen se resta a cada lado de cada eje: es la distancia de seguridad al

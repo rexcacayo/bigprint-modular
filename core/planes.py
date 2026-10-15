@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Planos de corte con cualquier orientación.
 
 Un plano de BigPrint era siempre perpendicular a un eje (X, Y o Z) y se guardaba

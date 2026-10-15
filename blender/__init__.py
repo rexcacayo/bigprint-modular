@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Lugaresi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Capa de integración con Blender: propiedades, operadores y paneles.
 
 El orden de registro importa: las propiedades deben existir antes de que los
