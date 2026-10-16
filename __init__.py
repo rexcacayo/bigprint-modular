@@ -13,7 +13,7 @@ Estructura: `core/` es Python puro (testeable sin Blender) y `blender/` es la
 bl_info = {
     "name": "BigPrint Modular",
     "author": "Ricardo Lugaresi",
-    "version": (0, 13, 0),
+    "version": (0, 13, 1),
     "blender": (3, 6, 0),
     "location": "Vista 3D > Barra lateral (N) > BigPrint",
     "description": "Prepara modelos grandes para imprimirlos por piezas",

@@ -12,7 +12,7 @@ la malla evaluada, y el modelo de partida solo se oculta.
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from ..core import cut_plan as core_plan
 from ..core import pieces as core_pieces
@@ -24,6 +24,7 @@ ROLE_KEY = "bigprint_role"
 ROLE_PIECE = "piece"
 SOURCE_KEY = "bigprint_source"
 PIECE_INDEX_KEY = "bigprint_piece_index"
+NO_HOLES_KEY = "bigprint_sin_agujeros"
 
 
 class CutError(RuntimeError):
@@ -105,6 +106,79 @@ def _build_side(source_mesh, matrix_world, plane_co, plane_no, keep_positive: bo
     return bpy.data.objects.new(name, malla)
 
 
+def _closed_bm(bm) -> bool:
+    return bool(bm.faces) and all(e.is_manifold for e in bm.edges)
+
+
+def _build_side_boolean(context, source_mesh, matrix_world, plane_co, plane_no, keep_positive: bool, name: str):
+    """Una mitad con una booleana (pieza ∩ caja que ocupa ese lado del plano).
+
+    Es lo más fiable con secciones complicadas (figuras con muchos huecos, mallas de IA o
+    rehechas con vóxeles): tapar el corte con triangle_fill a veces deja la tapa abierta.
+    Devuelve None si la booleana no da un sólido cerrado (entonces se usa bisect).
+    """
+    solvers = [s for s in ("MANIFOLD", "EXACT") if s in _solvers()]
+    if not solvers:
+        return None
+    col = context.scene.collection
+    work = bpy.data.meshes.new(f"{name}_trabajo")
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(source_mesh)
+        bm.transform(matrix_world)
+        if not _closed_bm(bm):
+            return None                       # la booleana necesita un sólido cerrado
+        pts = [v.co for v in bm.verts]
+        lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+        hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+        bm.to_mesh(work)
+    finally:
+        bm.free()
+    radius = (hi - lo).length + 1.0
+    n = Vector(plane_no).normalized()
+    side = 1.0 if keep_positive else -1.0
+    box_me = bpy.data.meshes.new(f"{name}_caja")
+    bb = bmesh.new()
+    try:
+        bmesh.ops.create_cube(bb, size=2.0 * radius)
+        rot = n.to_track_quat("Z", "Y").to_matrix().to_4x4()
+        center = Vector(plane_co) + n * (radius * side)
+        bb.transform(Matrix.Translation(center) @ rot)
+        bb.to_mesh(box_me)
+    finally:
+        bb.free()
+    obj = bpy.data.objects.new(f"{name}_trabajo", work)
+    box = bpy.data.objects.new(f"{name}_caja", box_me)
+    col.objects.link(obj)
+    col.objects.link(box)
+    result = None
+    try:
+        for solver in solvers:
+            mod = obj.modifiers.new("BigPrint_Mitad", "BOOLEAN")
+            mod.operation = "INTERSECT"
+            mod.solver = solver
+            mod.object = box
+            try:
+                context.view_layer.update()
+                graph = context.evaluated_depsgraph_get()
+                new = bpy.data.meshes.new_from_object(obj.evaluated_get(graph), depsgraph=graph)
+            except RuntimeError:
+                continue
+            finally:
+                obj.modifiers.remove(mod)
+            if len(new.polygons) and _cerrada(new):
+                new.name = name
+                result = bpy.data.objects.new(name, new)
+                break
+            bpy.data.meshes.remove(new)
+    finally:
+        bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.data.objects.remove(box, do_unlink=True)
+        bpy.data.meshes.remove(work)
+        bpy.data.meshes.remove(box_me)
+    return result
+
+
 def split_object(context, obj, plane_co, plane_no, hide_source: bool = True, names=None):
     """Parte `obj` por el plano y devuelve los dos objetos nuevos.
 
@@ -125,8 +199,11 @@ def split_object(context, obj, plane_co, plane_no, hide_source: bool = True, nam
     try:
         matriz = obj.matrix_world.copy()
         # keep_positive=False es el lado bajo del eje (contra la normal)
-        pieza_baja = _build_side(temporal, matriz, plane_co, plane_no, False, nombres[0])
-        pieza_alta = _build_side(temporal, matriz, plane_co, plane_no, True, nombres[1])
+        # primero con booleana (tapa siempre cerrada); si no sale, bisect + tapa como antes
+        pieza_baja = (_build_side_boolean(context, temporal, matriz, plane_co, plane_no, False, nombres[0])
+                      or _build_side(temporal, matriz, plane_co, plane_no, False, nombres[0]))
+        pieza_alta = (_build_side_boolean(context, temporal, matriz, plane_co, plane_no, True, nombres[1])
+                      or _build_side(temporal, matriz, plane_co, plane_no, True, nombres[1]))
     finally:
         evaluado.to_mesh_clear()
 
@@ -318,7 +395,7 @@ def apply_holes(context, piezas, cortador):
     """
     disponibles = _solvers()
     orden = [s for s in ("MANIFOLD", "EXACT") if s in disponibles] or [None]
-    perforadas = []
+    perforadas, fallidas = [], []
     for pieza in piezas:
         ultimo_error = None
         for solver in orden:
@@ -348,8 +425,15 @@ def apply_holes(context, piezas, cortador):
             bpy.data.meshes.remove(nueva)
             ultimo_error = f"el solucionador {solver} no dio un sólido cerrado"
         else:
-            raise CutError(f"No se ha podido perforar {pieza.name}: {ultimo_error}")
+            # Una pieza rebelde no tira el resto: se marca y se sigue con las demás
+            pieza[NO_HOLES_KEY] = str(ultimo_error)
+            fallidas.append(pieza.name)
+            continue
+        if NO_HOLES_KEY in pieza:
+            del pieza[NO_HOLES_KEY]
         perforadas.append(pieza)
+    if fallidas and not perforadas:
+        raise CutError(f"No se ha podido perforar {fallidas[0]}: {ultimo_error}")
     return perforadas
 
 

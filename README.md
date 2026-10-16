@@ -36,6 +36,13 @@ BigPrint**.
 
 ---
 
+## Novedades 0.13.1
+
+- Las piezas se cortan con una booleana (pieza ∩ caja): la tapa del corte sale siempre cerrada también
+  en figuras con secciones complicadas. Si la booleana no sale, se usa el corte de siempre.
+- Si una pieza no se deja perforar, ya no se pierde todo: se perforan las demás y se dice cuál quedó
+  sin agujeros.
+
 ## Novedades 0.13
 
 - **Línea de corte** en vez del plano manual: `Dibujar línea`, pinchas alrededor

@@ -814,7 +814,10 @@ class BIGPRINT_OT_apply_connectors(Operator):
         # Al perforar cambian volúmenes y estanqueidad: se revalida todo
         verify_pieces(settings, settings.source_object, piezas)
 
-        if not settings.cut_result.all_solid:
+        sin = [p.name for p in piezas if cutting.NO_HOLES_KEY in p]
+        if sin:
+            self.report({"WARNING"}, f"Sin agujeros (no se pudo perforar): {', '.join(sin)}")
+        elif not settings.cut_result.all_solid:
             self.report({"WARNING"}, "Alguna pieza ha dejado de estar cerrada tras perforar")
         else:
             self.report({"INFO"}, f"Agujeros hechos ({resultado.removed_cm3:.2f} cm³ retirados)")
